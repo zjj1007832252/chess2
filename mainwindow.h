@@ -91,6 +91,7 @@ private:
     QString m_myName;
 
     bool m_gameOver = false;
+    unsigned m_gameGeneration = 0;
 };
 
 } // namespace chess

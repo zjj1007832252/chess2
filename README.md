@@ -70,7 +70,29 @@ mingw32-make -j4
 
 ## 设计要点
 
-- **棋盘模型**与界面解耦：`Board` 是纯数据结构，提供伪合法走子与“是否使己方将处于将军”的判定，`generateLegalMoves` 在其上过滤。
+- **棋盘模型**与界面解耦：`Board` 是纯数据结构，提供伪合法走子与"是否使己方将处于将军"的判定，`generateLegalMoves` 在其上过滤。
 - **将帅照面**（飞将）规则在 `inCheck` 中处理。
 - **AI** 在 `QtConcurrent` 工作线程里思考，主界面不卡顿；通过 `QFutureWatcher` 回收选定的走法。
 - **视角翻转**：联机/人机时本方始终在下方；本地双人模式每回合翻转到当前行棋方。
+
+## 代码质量改进
+
+经过代码审查，已完成以下修复：
+
+### 正确性修复
+- `generateLegalMoves` 移除 `const_cast`，新增 `isKingSafeAfterMove` const 方法（使用棋盘副本）
+- 棋盘提示点改用 `generateLegalMoves`，不再提示送将走法
+- 新增 `m_gameGeneration` 计数器，防止旧 AI 线程结果污染新局
+- 网络走子入口增加 `inBoard` 坐标校验和 JSON 字段校验
+- `onAiFinished` 添加 `tryMove` 防御性校验
+
+### 性能优化
+- `inCheck` 复用预分配 vector，避免每个敌方子力都 new
+- `orderMoves` 改用 MVV 排序（按被吃子价值降序），提升 Alpha-Beta 剪枝效率
+
+### 代码质量
+- `at()/set()` 添加 `assert(inBoard)` 边界检查
+- AI 种子改用 `std::random_device`，每次运行走法不同
+- IP 显示改用 `QStringList`，移除 C 风格 buffer
+- 移除死代码（`s_redPawnTable`、注释掉的 `QTimer`、空操作赋值）
+- `onNetRematch` 移除重复 `m_board.reset()`

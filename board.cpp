@@ -30,8 +30,6 @@ void Board::reset()
     m_side = Side::Red;
 }
 
-Piece Board::at(int r, int c) const { return m_b[r][c]; }
-void Board::set(int r, int c, Piece p) { m_b[r][c] = p; }
 bool Board::inBoard(int r, int c) { return r >= 0 && r < 10 && c >= 0 && c < 9; }
 
 // ---- per-piece pseudo-legal generators ----
@@ -239,11 +237,13 @@ bool Board::inCheck(Side s) const
     }
 
     // Can any enemy move land on our king? (pseudo-legal; no recursion into safety)
+    std::vector<Move> ms;
+    ms.reserve(16);
     for (int r = 0; r < 10; ++r) {
         for (int c = 0; c < 9; ++c) {
             Piece p = m_b[r][c];
             if (p == Piece::None || sideOf(p) != opp) continue;
-            std::vector<Move> ms;
+            ms.clear();
             generateMovesFrom(r, c, ms);
             for (auto &m : ms)
                 if (m.tr == kr && m.tc == kc) return true;
@@ -264,14 +264,22 @@ bool Board::leavesKingSafe(int fr, int fc, int tr, int tc)
     return safe;
 }
 
+bool Board::isKingSafeAfterMove(int fr, int fc, int tr, int tc) const
+{
+    Board copy = *this;
+    Piece mover = copy.m_b[fr][fc];
+    copy.m_b[tr][tc] = mover;
+    copy.m_b[fr][fc] = Piece::None;
+    return !copy.inCheck(sideOf(mover));
+}
+
 std::vector<Move> Board::generateLegalMoves() const
 {
-    auto *self = const_cast<Board*>(this);
     std::vector<Move> result;
     std::vector<Move> pseudo = generateMoves();
     result.reserve(pseudo.size());
     for (auto &m : pseudo)
-        if (self->leavesKingSafe(m.fr, m.fc, m.tr, m.tc))
+        if (isKingSafeAfterMove(m.fr, m.fc, m.tr, m.tc))
             result.push_back(m);
     return result;
 }

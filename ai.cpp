@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <climits>
 #include <cstdint>
+#include <random>
 
 namespace chess {
 
@@ -15,14 +16,11 @@ static const int V_ADVISOR= 200;
 static const int V_BISHOP = 200;
 static const int V_PAWN   = 100;
 
-// Pawn positional bonus: advanced pawns are worth more, and crossing the river
-// grants lateral mobility. Indexed by row from the owner's own side (0 = home).
-static const int s_redPawnTable[10] = {
-    /* r0 (enemy back rank) */  70, 90, 110, 130, 120, 130, 110, 90, 70
-};
-// We'll build the table programmatically for clarity below.
-
-AI::AI() {}
+AI::AI()
+{
+    std::random_device rd;
+    m_rng = rd();
+}
 
 void AI::setDifficulty(Difficulty d)
 {
@@ -113,11 +111,13 @@ int AI::evaluate(const Board &b) const
     return (b.sideToMove() == Side::Red) ? score : -score;
 }
 
-// Order moves: captures first (MVV-LVA-ish), encouraging alpha-beta cutoffs.
+// Order moves: captures first by victim value (MVV), encouraging alpha-beta cutoffs.
 static void orderMoves(std::vector<Move> &moves)
 {
     std::sort(moves.begin(), moves.end(), [](const Move &a, const Move &b) {
-        return (a.captured != Piece::None) > (b.captured != Piece::None);
+        int sa = (a.captured != Piece::None) ? baseValue(a.captured) : 0;
+        int sb = (b.captured != Piece::None) ? baseValue(b.captured) : 0;
+        return sa > sb;
     });
 }
 

@@ -126,9 +126,6 @@ MainWindow::MainWindow(QWidget *parent)
 
     resize(900, 720);
     statusBar()->showMessage(QStringLiteral("Ready. Select New Game from the Game menu."));
-
-    // DISABLED: was triggering GameModeDialog::exec() crash
-    // QTimer::singleShot(500, this, [this]{ onNewGame(); });
 }
 
 MainWindow::~MainWindow()
@@ -162,6 +159,7 @@ void MainWindow::startGame(const GameModeDialog &dlg)
     m_peerName.clear();
     m_gameOver = false;
     m_aiBusy = false;
+    ++m_gameGeneration;
     m_myName = dlg.playerName().isEmpty() ? QStringLiteral("玩家") : dlg.playerName();
 
     switch (dlg.selectedMode()) {
@@ -364,8 +362,10 @@ void MainWindow::startAiTurn()
     // Snapshot the AI and board so the worker thread can't race with input.
     AI ai = m_ai;
     Board snapshot = m_board;
+    unsigned gen = m_gameGeneration;
     // chooseMove mutates its internal RNG (member of `ai`) but not the board.
-    QFuture<Move> fut = QtConcurrent::run([ai, snapshot]() mutable -> Move {
+    QFuture<Move> fut = QtConcurrent::run([ai, snapshot, gen]() mutable -> Move {
+        Q_UNUSED(gen);
         return ai.chooseMove(snapshot);
     });
     m_aiWatcher.setFuture(fut);
@@ -383,8 +383,7 @@ void MainWindow::onAiFinished()
         return;
     }
 
-    // Apply the AI's move. tryMove also validates, but the AI only returns
-    // legal moves so this always succeeds.
+    // Validate the AI's move is legal before applying.
     Move applied;
     if (!m_board.tryMove(m.fr, m.fc, m.tr, m.tc, applied)) {
         updateStatus();
@@ -434,6 +433,10 @@ void MainWindow::onNetError(const QString &msg)
 void MainWindow::onNetMoveReceived(int fr, int fc, int tr, int tc)
 {
     if (m_gameOver) return;
+    if (!Board::inBoard(fr, fc) || !Board::inBoard(tr, tc)) {
+        appendLog(QStringLiteral("收到非法坐标，已忽略。"));
+        return;
+    }
     // It's the opponent's turn; apply their move.
     Move m;
     if (!m_board.tryMove(fr, fc, tr, tc, m)) {
@@ -473,7 +476,7 @@ void MainWindow::onNetRematch()
         QStringLiteral("对手请求再来一局，是否同意？"));
     if (rc != QMessageBox::Yes) return;
     m_gameOver = false;
-    m_board.reset();
+    ++m_gameGeneration;
     m_history.clear();
     resetBoardAndUi();
     maybeFlipView();
@@ -529,7 +532,6 @@ void MainWindow::onUndo()
             delete m_captures->takeItem(m_captures->count() - 1);
         }
     }
-    if (m_mode == Mode::VsAI) m_humanSide = m_humanSide; // unchanged
     m_view->clearSelection();
     m_view->clearHints();
     m_view->clearLastMove();

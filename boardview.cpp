@@ -309,7 +309,7 @@ void BoardView::mousePressEvent(QMouseEvent *e)
             if (pc != Piece::None && sideOf(pc) == m_board->sideToMove()) {
                 setSelected(r, c);
                 // Provide legal-move hints for nicer UX.
-                std::vector<Move> all = m_board->generateMoves();
+                std::vector<Move> all = m_board->generateLegalMoves();
                 std::vector<Move> mine;
                 for (auto &m : all)
                     if (m.fr == r && m.fc == c) mine.push_back(m);

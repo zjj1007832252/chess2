@@ -12,7 +12,6 @@
 #include <QPushButton>
 #include <QAbstractSocket>
 #include <QNetworkInterface>
-#include <cstring>
 
 namespace chess {
 
@@ -61,26 +60,18 @@ GameModeDialog::GameModeDialog(QWidget *parent)
     m_hostPort->setValue(9527);
     hostForm->addRow(QStringLiteral("监听端口："), m_hostPort);
     // Show local IPs to help the user share them.
-    // NOTE: We must avoid creating QString temporaries that cross the CRT
-    // boundary (Qt DLLs use msvcrt, our code uses UCRT). Converting to
-    // QByteArray immediately breaks the dependency.
-    static char ipBuf[4096];
-    memset(ipBuf, 0, sizeof(ipBuf));
-    bool foundIp = false;
+    QStringList ips;
     for (const auto &iface : QNetworkInterface::allInterfaces()) {
         const auto entries = iface.addressEntries();
         for (const auto &entry : entries) {
             if (entry.ip().protocol() == QAbstractSocket::IPv4Protocol &&
                 !entry.ip().isLoopback()) {
-                QByteArray ba = entry.ip().toString().toLatin1();
-                if (foundIp) strncat_s(ipBuf, sizeof(ipBuf), ", ", _TRUNCATE);
-                strncat_s(ipBuf, sizeof(ipBuf), ba.constData(), _TRUNCATE);
-                foundIp = true;
+                ips.append(entry.ip().toString());
             }
         }
     }
-    if (!foundIp) strcpy_s(ipBuf, sizeof(ipBuf), "127.0.0.1");
-    hostForm->addRow(QStringLiteral("本机地址："), new QLabel(QString::fromUtf8(ipBuf), hostPanel));
+    QString ipText = ips.isEmpty() ? QStringLiteral("127.0.0.1") : ips.join(QStringLiteral(", "));
+    hostForm->addRow(QStringLiteral("本机地址："), new QLabel(ipText, hostPanel));
     hostForm->addRow(QString(),
         new QLabel(QStringLiteral("将上面的地址和端口告诉好友即可加入。"), hostPanel));
     m_stack->addWidget(hostPanel);

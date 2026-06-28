@@ -4,6 +4,7 @@
 #include <vector>
 #include <cstdint>
 #include <string>
+#include <cassert>
 
 namespace chess {
 
@@ -47,8 +48,8 @@ public:
     Board();
     void reset();
 
-    Piece at(int r, int c) const;
-    void set(int r, int c, Piece p);
+    Piece at(int r, int c) const { assert(inBoard(r, c)); return m_b[r][c]; }
+    void set(int r, int c, Piece p) { assert(inBoard(r, c)); m_b[r][c] = p; }
 
     Side sideToMove() const { return m_side; }
     void setSideToMove(Side s) { m_side = s; }
@@ -96,8 +97,10 @@ private:
     void genPawn(int r, int c, std::vector<Move> &out) const;
 
     // Does moving the piece at (fr,fc) to (tr,tc) leave our king safe?
-    // (used internally by generateLegalMoves)
+    // Non-const version: temporarily mutates board (faster, used by tryMove).
     bool leavesKingSafe(int fr, int fc, int tr, int tc);
+    // Const version: uses board copy (used by generateLegalMoves).
+    bool isKingSafeAfterMove(int fr, int fc, int tr, int tc) const;
 
     Side m_side = Side::Red;
     Piece m_b[10][9];

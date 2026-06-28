@@ -131,8 +131,12 @@ void NetworkManager::processLine(const QByteArray &line)
     QJsonObject o = doc.object();
     QString t = o.value("t").toString();
     if (t == "move") {
-        emit moveReceived(o.value("fr").toInt(), o.value("fc").toInt(),
-                          o.value("tr").toInt(), o.value("tc").toInt());
+        int fr = o.value("fr").toInt(-1);
+        int fc = o.value("fc").toInt(-1);
+        int tr = o.value("tr").toInt(-1);
+        int tc = o.value("tc").toInt(-1);
+        if (fr >= 0 && fc >= 0 && tr >= 0 && tc >= 0)
+            emit moveReceived(fr, fc, tr, tc);
     } else if (t == "chat") {
         emit chatReceived(o.value("text").toString());
     } else if (t == "resign") {
